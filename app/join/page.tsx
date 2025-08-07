@@ -78,6 +78,8 @@ export default function JoinPage() {
                 setError(result.message || 'An unknown error occurred.');
             }
         } catch (err) {
+            // FIX: Log the error and remove the unused variable.
+            console.error("Join page submission error:", err);
             setError('Failed to connect to the server. Please try again.');
         } finally {
             setIsLoading(false);

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import Link from 'next/link';
+import Image from 'next/image'; // FIX: Import the Image component
 
 const TopBar = () => {
     const headerRef = useRef<HTMLElement>(null);
@@ -44,7 +45,8 @@ const TopBar = () => {
         <header ref={headerRef} className="header bg-white pt-4 pb-4 sticky top-0 z-50">
             <div className="max-w-[1300px] mx-auto px-8 flex justify-between items-center transition-all duration-300">
                 <div className="flex items-center gap-3">
-                    <img src="https://i.imgur.com/rE4017A.png" alt="Logo" className="w-9 h-9 logo-img transition-all duration-300" />
+                    {/* FIX: Replaced <img> with <Image> */}
+                    <Image src="https://i.imgur.com/rE4017A.png" alt="Logo" width={36} height={36} className="logo-img transition-all duration-300" />
                     <span className="text-2xl logo-text" style={{ fontFamily: "'Playfair Display', serif" }}>Root & Rise</span>
                 </div>
 
@@ -60,9 +62,12 @@ const TopBar = () => {
                     {/* --- NEW: Avatar Dropdown --- */}
                     <div className="relative" ref={dropdownRef}>
                         <button onClick={() => setDropdownOpen(!isDropdownOpen)} className="block w-10 h-10 rounded-full overflow-hidden border-2 border-transparent hover:border-blue-400 transition-colors">
-                            <img 
+                            {/* FIX: Replaced <img> with <Image> */}
+                            <Image 
                                 src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e8e8e8&color=333`}
-                                alt="User Avatar" 
+                                alt="User Avatar"
+                                width={40}
+                                height={40} 
                             />
                         </button>
                         

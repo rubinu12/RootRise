@@ -28,9 +28,10 @@ const QuickStart = () => {
                 {/* Topper's Tip Card */}
                 <div className="bg-gray-50/50 border border-dashed border-gray-300 p-5 rounded-lg">
                      <h4 className="font-bold text-lg mb-3 flex items-center text-gray-800" style={{ fontFamily: "'Playfair Display', serif" }}>
-                        <i className="ri-lightbulb-flash-line text-yellow-500 mr-2"></i>Topper's Tip of the Day
+                        <i className="ri-lightbulb-flash-line text-yellow-500 mr-2"></i>Topper&apos;s Tip of the Day
                      </h4>
-                     <p className="text-gray-700 italic leading-relaxed text-sm">"Don't just read the newspaper, analyze it. For every piece of news, ask yourself: 'How can UPSC frame a question on this?' This changes the way you study current affairs."</p>
+                     {/* FIX: Replaced " and ' with &quot; and &apos; */}
+                     <p className="text-gray-700 italic leading-relaxed text-sm">&quot;Don&apos;t just read the newspaper, analyze it. For every piece of news, ask yourself: &apos;How can UPSC frame a question on this?&apos; This changes the way you study current affairs.&quot;</p>
                      <p className="text-right text-xs font-semibold text-gray-500 mt-3">- Tina Dabi (AIR 1, 2015)</p>
                 </div>
             </div>

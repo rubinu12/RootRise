@@ -209,6 +209,8 @@ export const QuizProvider = ({
                 setQuizError({ message: 'No questions were found for your selection.', type: 'generic' });
             }
         } catch (error) {
+            // FIX: Log the error and remove the unused variable.
+            console.error("Failed to load quiz:", error);
             setQuizError({ message: 'A network error occurred.', type: 'generic' });
         } finally {
             setIsLoading(false);

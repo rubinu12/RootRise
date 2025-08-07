@@ -1,4 +1,4 @@
-import { NextResponse, NextRequest } from 'next/server'; // Import NextRequest
+import { NextResponse, NextRequest } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Quote from '@/models/Quote';
 
@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
  * Handles PUT requests to /api/quotes/[id].
  * Updates a specific quote.
  */
-// Add types for the 'request' and 'params' parameters
+// FIX: Added 'async' and proper types for request and params
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   await dbConnect();
 
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
  * Handles DELETE requests to /api/quotes/[id].
  * Deletes a specific quote.
  */
-// Add types for the 'request' and 'params' parameters
+// FIX: Added 'async' and proper types for request and params
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   await dbConnect();
 

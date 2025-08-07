@@ -1,18 +1,22 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Question from '@/models/Question';
 
-// This line forces the route to be dynamic, fixing the static export error.
+// This line forces the route to be dynamic.
 export const dynamic = 'force-dynamic';
+
+// Define a specific type for the route's context, including params.
+type RouteContext = {
+  params: {
+    id: string;
+  };
+};
 
 /**
  * Handles GET requests to /api/questions/[id].
  * Fetches a single question by its ID.
- * @param {Request} req - The incoming request object.
- * @param {object} context - Contains route parameters. context.params.id is the question ID.
- * @returns {NextResponse} - A response containing the question data or an error message.
  */
-export async function GET(req, { params }) {
+export async function GET(req: NextRequest, { params }: RouteContext) {
   await dbConnect();
 
   try {
@@ -21,7 +25,7 @@ export async function GET(req, { params }) {
       return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
     }
     return NextResponse.json({ success: true, data: question }, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: 'Server Error: ' + error.message }, { status: 500 });
   }
 }
@@ -29,11 +33,8 @@ export async function GET(req, { params }) {
 /**
  * Handles PUT requests to /api/questions/[id].
  * Updates a specific question in the database.
- * @param {Request} req - The incoming request object, containing the updated data.
- * @param {object} context - Contains route parameters. context.params.id is the question ID.
- * @returns {NextResponse} - A response containing the updated question or an error message.
  */
-export async function PUT(req, { params }) {
+export async function PUT(req: NextRequest, { params }: RouteContext) {
   await dbConnect();
 
   try {
@@ -42,8 +43,8 @@ export async function PUT(req, { params }) {
       params.id,
       body,
       {
-        new: true, // Return the modified document rather than the original.
-        runValidators: true, // Run schema validation on the update operation.
+        new: true,
+        runValidators: true,
       }
     );
 
@@ -52,7 +53,7 @@ export async function PUT(req, { params }) {
     }
 
     return NextResponse.json({ success: true, data: question }, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
 }
@@ -60,11 +61,8 @@ export async function PUT(req, { params }) {
 /**
  * Handles DELETE requests to /api/questions/[id].
  * Deletes a specific question from the database.
- * @param {Request} req - The incoming request object.
- * @param {object} context - Contains route parameters. context.params.id is the question ID.
- * @returns {NextResponse} - A success response or an error message.
  */
-export async function DELETE(req, { params }) {
+export async function DELETE(req: NextRequest, { params }: RouteContext) {
   await dbConnect();
 
   try {
@@ -75,7 +73,7 @@ export async function DELETE(req, { params }) {
     }
 
     return NextResponse.json({ success: true, data: {} }, { status: 200 });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json({ success: false, error: 'Server Error: ' + error.message }, { status: 500 });
   }
 }

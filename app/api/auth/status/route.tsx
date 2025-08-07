@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    // This will catch expired tokens or other JWT errors.
+    // FIX: Log the error and remove the unused variable.
+    console.error("Auth status error:", error);
     return NextResponse.json({ isValid: false, message: 'Invalid token.' }, { status: 401 });
   }
 }

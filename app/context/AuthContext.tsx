@@ -36,6 +36,8 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
+            // FIX: Log the error and remove the unused variable.
+            console.error("Failed to fetch user:", error);
             setUser(null);
         } finally {
             setLoading(false);

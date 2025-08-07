@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from 'next/link';
+import Image from 'next/image'; // FIX: Import the Image component
 import { useQuiz } from "@/app/context/QuizContext";
 import { useAuth } from "@/app/context/AuthContext";
 import ConfirmationModal from './ConfirmationModal';
@@ -29,7 +30,7 @@ const Header = () => {
 
     const sortedGroups = useMemo(() => {
         if (!quizGroupBy || !isGroupingEnabled) return [];
-        const groups = [...new Set(questions.map(q => q[quizGroupBy]).filter(Boolean))] as (string | number)[];
+        const groups = Array.from(new Set(questions.map(q => q[quizGroupBy]).filter(Boolean))) as (string | number)[];
         if (groups.length === 0) return [];
         const isNumeric = !isNaN(Number(groups[0]));
         return groups.sort((a, b) => isNumeric ? Number(b) - Number(a) : String(a).localeCompare(String(b)));
@@ -109,7 +110,8 @@ const Header = () => {
                                         <p className="font-semibold text-sm text-gray-800">{userName}</p>
                                         <p className="text-xs text-gray-500 capitalize">{user?.role || 'Member'}</p>
                                     </div>
-                                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e8e8e8&color=333`} alt="User Avatar" className="w-10 h-10 rounded-full" />
+                                    {/* FIX: Replaced <img> with <Image> */}
+                                    <Image src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e8e8e8&color=333`} alt="User Avatar" width={40} height={40} className="w-10 h-10 rounded-full" />
                                 </button>
                                 {isDropdownOpen && (
                                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100">

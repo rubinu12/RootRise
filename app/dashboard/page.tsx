@@ -32,7 +32,8 @@ export default function DashboardPage() {
               <div className="col-span-12 lg:col-span-8 space-y-8">
                 <section>
                   <h2 className="text-3xl mb-2">Welcome Back, {userName}!</h2>
-                  <p className="text-gray-600 mb-6">Let's make today productive. Here's what we recommend:</p>
+                  {/* FIX: Replaced ' with &apos; */}
+                  <p className="text-gray-600 mb-6">Let&apos;s make today productive. Here&apos;s what we recommend:</p>
                   <QuickStart />
                 </section>
                 <DailyDoseSection />

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuiz } from '@/app/context/QuizContext';
-import { Question } from '@/types';
+// FIX: Removed the unused 'Question' import.
 
 interface ConfirmationModalProps {
     onClose: () => void;

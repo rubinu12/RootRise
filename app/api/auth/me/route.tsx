@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, user }, { status: 200 });
 
   } catch (error) {
-    // This will catch other invalid/expired tokens.
+    // FIX: Log the error and remove the unused variable.
+    console.error("Auth 'me' route error:", error);
     return NextResponse.json({ success: false, message: 'Not authorized' }, { status: 401 });
   }
 }
