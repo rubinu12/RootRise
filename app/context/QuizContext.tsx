@@ -4,7 +4,8 @@ import React, {
     createContext,
     useState,
     useContext,
-    ReactNode
+    ReactNode,
+    useEffect, // Import useEffect
 } from 'react';
 import {
     useRouter
@@ -47,6 +48,14 @@ interface ToastState {
     show: boolean;
     message: string;
     type: 'info' | 'warning';
+}
+
+// --- NEW: Interface for Performance Stats ---
+interface PerformanceStats {
+    finalScore: number;
+    accuracy: number;
+    avgTimePerQuestion: number;
+    pacing: 'Ahead' | 'On Pace' | 'Behind';
 }
 
 interface QuizContextType {
@@ -98,6 +107,8 @@ interface QuizContextType {
     toast: ToastState;
     showToast: (message: string, type: 'info' | 'warning') => void;
     hideToast: () => void;
+    // --- NEW: Expose performance stats ---
+    performanceStats: PerformanceStats | null;
 }
 
 const QuizContext = createContext < QuizContextType | undefined > (undefined);
@@ -131,6 +142,9 @@ export const QuizProvider = ({
         message: '',
         type: 'info'
     });
+    // --- NEW: State for performance stats ---
+    const [performanceStats, setPerformanceStats] = useState<PerformanceStats | null>(null);
+
 
     const router = useRouter();
 
@@ -204,12 +218,12 @@ export const QuizProvider = ({
                 setIsTestMode(false);
                 setIsPageScrolled(false);
                 setIsTopBarVisible(true);
+                setPerformanceStats(null); // --- NEW: Reset stats on new quiz ---
                 router.push('/quiz');
             } else {
                 setQuizError({ message: 'No questions were found for your selection.', type: 'generic' });
             }
         } catch (error) {
-            // FIX: Log the error and remove the unused variable.
             console.error("Failed to load quiz:", error);
             setQuizError({ message: 'A network error occurred.', type: 'generic' });
         } finally {
@@ -235,6 +249,34 @@ export const QuizProvider = ({
         const maxScore = totalCount * 2;
         return { correctCount, incorrectCount, unattemptedCount, finalScore, maxScore };
     };
+
+    // --- NEW: Effect to calculate performance stats when the test is submitted ---
+    useEffect(() => {
+        if (showReport || showDetailedSolution) {
+            const attemptedCount = userAnswers.length;
+            if (attemptedCount === 0) {
+                setPerformanceStats({ finalScore: 0, accuracy: 0, avgTimePerQuestion: 0, pacing: 'On Pace' });
+                return;
+            }
+
+            const { finalScore, correctCount } = calculateResults();
+            const accuracy = Math.round((correctCount / attemptedCount) * 100);
+            
+            const timeTaken = totalTime - timeLeft;
+            const avgTimePerQuestion = Math.round(timeTaken / attemptedCount);
+
+            let pacing: 'Ahead' | 'On Pace' | 'Behind' = 'On Pace';
+            const idealTimePerQuestion = 72; // 1.2 minutes in seconds
+            if (avgTimePerQuestion > idealTimePerQuestion + 10) {
+                pacing = 'Behind';
+            } else if (avgTimePerQuestion < idealTimePerQuestion - 10) {
+                pacing = 'Ahead';
+            }
+
+            setPerformanceStats({ finalScore, accuracy, avgTimePerQuestion, pacing });
+        }
+    }, [showReport, showDetailedSolution]);
+
 
     const saveTestResult = async () => {
         const score = calculateResults();
@@ -299,7 +341,9 @@ export const QuizProvider = ({
         getNotAttemptedCount, loadAndStartQuiz,
         isPageScrolled, setIsPageScrolled, currentGroupInView, setCurrentGroupInView, bookmarkedQuestions,
         toggleBookmark, markedForReview, toggleMarkForReview, saveTestResult, calculateResults,
-        toast, showToast, hideToast
+        toast, showToast, hideToast,
+        // --- NEW: Expose stats to consumers ---
+        performanceStats
     };
 
     return <QuizContext.Provider value={value}>{children}</QuizContext.Provider>;

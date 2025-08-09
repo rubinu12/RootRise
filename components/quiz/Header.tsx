@@ -1,40 +1,21 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from 'next/link';
-import Image from 'next/image'; // FIX: Import the Image component
 import { useQuiz } from "@/app/context/QuizContext";
 import { useAuth } from "@/app/context/AuthContext";
 import ConfirmationModal from './ConfirmationModal';
-
-const ToggleSwitch = ({ enabled, onChange }: { enabled: boolean, onChange: (enabled: boolean) => void }) => (
-    <button
-        onClick={() => onChange(!enabled)}
-        className={`${enabled ? 'bg-blue-600' : 'bg-gray-200'} relative inline-flex items-center h-6 rounded-full w-11 transition-colors flex-shrink-0`}
-    >
-        <span className={`${enabled ? 'translate-x-6' : 'translate-x-1'} inline-block w-4 h-4 transform bg-white rounded-full transition-transform`} />
-    </button>
-);
+import DynamicQuizCommandBar from './DynamicQuizCommandBar'; // Import our new smart component
 
 const Header = () => {
     const {
-        isTestMode, showReport, quizTitle, startTest, resetTest, isPageScrolled, showDetailedSolution,
-        saveTestResult, questions, currentGroupInView, quizGroupBy, isTopBarVisible,
-        setIsTopBarVisible, isGroupingEnabled, setIsGroupingEnabled
+        isTestMode, showReport, quizTitle, startTest, resetTest, showDetailedSolution,
+        saveTestResult, quizGroupBy, isTopBarVisible, setIsTopBarVisible
     } = useQuiz();
     const { user, logout } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const commandBarScrollRef = useRef<HTMLDivElement>(null);
-
-    const sortedGroups = useMemo(() => {
-        if (!quizGroupBy || !isGroupingEnabled) return [];
-        const groups = Array.from(new Set(questions.map(q => q[quizGroupBy]).filter(Boolean))) as (string | number)[];
-        if (groups.length === 0) return [];
-        const isNumeric = !isNaN(Number(groups[0]));
-        return groups.sort((a, b) => isNumeric ? Number(b) - Number(a) : String(a).localeCompare(String(b)));
-    }, [questions, quizGroupBy, isGroupingEnabled]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -46,19 +27,6 @@ const Header = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
     
-    useEffect(() => {
-        const el = commandBarScrollRef.current;
-        if (el) {
-            const onWheel = (e: WheelEvent) => {
-                if (e.deltaY === 0 || el.scrollWidth <= el.clientWidth) return;
-                e.preventDefault();
-                el.scrollTo({ left: el.scrollLeft + e.deltaY, behavior: 'auto' });
-            };
-            el.addEventListener('wheel', onWheel);
-            return () => el.removeEventListener('wheel', onWheel);
-        }
-    }, []);
-
     const getButton = () => {
         if (showDetailedSolution) {
             return (
@@ -78,18 +46,12 @@ const Header = () => {
         return <button onClick={startTest} className="btn px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-sm">Start Test</button>;
     };
 
-    const scrollToGroup = (groupName: string | number) => {
-        const groupElement = document.getElementById(`group-${groupName}`);
-        if (groupElement) {
-            groupElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    };
-
     const userName = user?.name || 'User';
 
     return (
         <>
             <header className="relative z-30 flex-shrink-0">
+                {/* This top bar logic remains unchanged */}
                 <div className={`transition-all duration-300 ease-in-out ${!isTopBarVisible || isTestMode ? '-mt-[69px]' : 'mt-0'}`}>
                     <div className="bg-white border-b border-gray-200 p-4 flex items-center justify-between mx-auto h-[69px] px-6">
                         <div className="flex items-center gap-3">
@@ -110,8 +72,7 @@ const Header = () => {
                                         <p className="font-semibold text-sm text-gray-800">{userName}</p>
                                         <p className="text-xs text-gray-500 capitalize">{user?.role || 'Member'}</p>
                                     </div>
-                                    {/* FIX: Replaced <img> with <Image> */}
-                                    <Image src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e8e8e8&color=333`} alt="User Avatar" width={40} height={40} className="w-10 h-10 rounded-full" />
+                                    <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=e8e8e8&color=333`} alt="User Avatar" className="w-10 h-10 rounded-full" />
                                 </button>
                                 {isDropdownOpen && (
                                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100">
@@ -129,35 +90,21 @@ const Header = () => {
                     </div>
                 </div>
 
-                {!isTestMode && (
-                    <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200">
-                         <div className="flex items-center justify-between max-w-full mx-auto px-6 h-[52px] gap-4">
-                            <div className="flex items-center gap-4 flex-shrink-0">
-                                {quizGroupBy === 'topic' && (
-                                    <div className="flex items-center gap-2">
-                                        <ToggleSwitch enabled={isGroupingEnabled} onChange={setIsGroupingEnabled} />
-                                    </div>
-                                )}
-                                <div className={`font-semibold text-gray-600 transition-opacity duration-300 capitalize text-nowrap ${isPageScrolled ? 'opacity-100' : 'opacity-0'}`}>
-                                   <b className="text-gray-900">{quizGroupBy === 'examYear' ? "Source" : quizGroupBy}:</b> {currentGroupInView}
-                                </div>
-                            </div>
-                            
-                            <div ref={commandBarScrollRef} className="flex-1 flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap">
-                                {isGroupingEnabled && sortedGroups.map(group => (
-                                    <React.Fragment key={group}>
-                                        <div className="border-l border-gray-300 h-4"></div>
-                                        <button onClick={() => scrollToGroup(group)} className="text-gray-600 hover:text-blue-600 font-semibold px-2">{group}</button>
-                                    </React.Fragment>
-                                ))}
-                            </div>
+                {/* --- REFACTOR --- */}
+                {/* The old, complex command bar logic is replaced with our new, smart component. */}
+                <div className="sticky top-0 bg-white/80 backdrop-blur-sm border-b border-gray-200">
+                     <div className="flex items-center justify-between max-w-full mx-auto px-6 h-[52px] gap-4">
+                        {/* The dynamic content is now handled by this single component */}
+                        <DynamicQuizCommandBar />
 
-                            <button onClick={() => setIsTopBarVisible(prev => !prev)} className="text-gray-500 hover:text-gray-800 flex-shrink-0" title={isTopBarVisible ? "Hide header" : "Show header"}>
+                        {/* The hide/show button remains, ensuring existing functionality is intact. */}
+                        {!isTestMode && (
+                             <button onClick={() => setIsTopBarVisible(prev => !prev)} className="text-gray-500 hover:text-gray-800 flex-shrink-0" title={isTopBarVisible ? "Hide header" : "Show header"}>
                                 <i className={`ri-arrow-up-s-line text-2xl transition-transform duration-300 ${!isTopBarVisible ? 'rotate-180' : ''}`}></i>
                             </button>
-                        </div>
+                        )}
                     </div>
-                )}
+                </div>
             </header>
 
             {isModalOpen && <ConfirmationModal onClose={() => setIsModalOpen(false)} onConfirmErase={resetTest} onConfirmSave={saveTestResult} />}
