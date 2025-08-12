@@ -3,6 +3,7 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode, FC } from 'react';
 import { useRouter } from 'next/navigation';
 import { IUser } from '@/models/Users';
+import { useIdleTimer } from '@/lib/hooks/useIdleTimer'; // --- NEW: Import our custom hook ---
 
 // --- Type Definitions ---
 interface AuthContextType {
@@ -16,6 +17,9 @@ interface AuthContextType {
 // --- Create The Context ---
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// --- NEW: Define the inactivity timeout (e.g., 4 hours in milliseconds) ---
+const IDLE_TIMEOUT =  4* 2 * 60 * 1000; 
+
 // --- Create The Provider Component ---
 export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<Omit<IUser, 'password'> | null>(null);
@@ -24,11 +28,7 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
 
     const fetchUser = async () => {
         try {
-            // --- CRUCIAL FIX: Added { cache: 'no-store' } ---
-            // This forces the browser to make a fresh request to the server every time,
-            // bypassing any client-side caches and ensuring our "Magic Key" check runs.
             const response = await fetch('/api/auth/me', { cache: 'no-store' }); 
-            
             if (response.ok) {
                 const data = await response.json();
                 setUser(data.user);
@@ -36,7 +36,6 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
                 setUser(null);
             }
         } catch (error) {
-            // FIX: Log the error and remove the unused variable.
             console.error("Failed to fetch user:", error);
             setUser(null);
         } finally {
@@ -58,6 +57,10 @@ export const AuthProvider: FC<{ children: ReactNode }> = ({ children }) => {
             router.push('/join');
         }
     };
+
+    // --- NEW: Use the idle timer hook ---
+    // We pass the logout function as the callback to be executed when the user is idle.
+    useIdleTimer(logout, IDLE_TIMEOUT);
 
     const value = {
         isAuthenticated: !!user,
