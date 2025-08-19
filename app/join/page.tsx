@@ -1,8 +1,10 @@
+// app/join/page.tsx
 "use client";
 
 import React, { useState, FC, ChangeEvent, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/app/context/AuthContext';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 // The FormInput component remains the same
 interface FormInputProps {
@@ -32,7 +34,7 @@ const FormInput: FC<FormInputProps> = ({ id, label, type, value, onChange, place
     </div>
 );
 
-// The main component for the page
+
 export default function JoinPage() {
     const [isLoginView, setIsLoginView] = useState(true);
     const [formData, setFormData] = useState({
@@ -40,12 +42,10 @@ export default function JoinPage() {
         email: '',
         password: '',
         phoneNo: '',
-        plan: 'yearly',
     });
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-    const { fetchUser } = useAuth(); // Get fetchUser to update the context
 
     const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -57,38 +57,57 @@ export default function JoinPage() {
         setIsLoading(true);
         setError('');
 
-        const endpoint = isLoginView ? '/api/auth/login' : '/api/auth/register';
-        const payload = isLoginView 
-            ? { email: formData.email, password: formData.password }
-            : { ...formData };
-
         try {
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-
-            if (response.ok) {
-                // --- FIX: On success, manually call fetchUser and then redirect ---
-                await fetchUser(); // Update the global auth state
-                router.push('/dashboard');
+            if (isLoginView) {
+                await signInWithEmailAndPassword(auth, formData.email, formData.password);
             } else {
-                const result = await response.json();
-                setError(result.message || 'An unknown error occurred.');
+                const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+                const firebaseUser = userCredential.user;
+
+                const response = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        uid: firebaseUser.uid,
+                        name: formData.name,
+                        email: formData.email,
+                        phoneNo: formData.phoneNo,
+                        role: 'paid',
+                    }),
+                });
+
+                if (!response.ok) {
+                    const result = await response.json();
+                    throw new Error(result.message || 'Failed to create user profile.');
+                }
             }
-        } catch (err) {
-            // FIX: Log the error and remove the unused variable.
-            console.error("Join page submission error:", err);
-            setError('Failed to connect to the server. Please try again.');
-        } finally {
-            setIsLoading(false);
+            // --- FIX: ADDED THE REDIRECT BACK ---
+            // On successful login or registration, navigate to the dashboard.
+            router.push('/dashboard');
+
+        } catch (err: any) {
+            setError(err.message.replace('Firebase: ', ''));
+            setIsLoading(false); // Only stop loading if there is an error.
         }
+        // We remove the `finally` block so the loading screen stays active
+        // until the page redirects.
     };
 
     return (
-        <div className="min-h-screen flex bg-gray-50">
-            {/* Left Side: Form Panel */}
+        <div className="min-h-screen flex bg-gray-50 relative">
+            {/* The loading overlay remains the same */}
+            {isLoading && (
+                <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center">
+                    <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-4 h-4 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-4 h-4 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                    <p className="mt-4 text-gray-700 font-medium">Processing...</p>
+                </div>
+            )}
+
+            {/* The rest of the JSX remains the same */}
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 sm:p-12">
                 <div className="w-full max-w-md">
                     <div className="text-center mb-8">
@@ -96,8 +115,8 @@ export default function JoinPage() {
                             {isLoginView ? 'Welcome Back!' : 'Create Your Account'}
                         </h1>
                         <p className="mt-2 text-gray-600">
-                            {isLoginView 
-                                ? 'Log in to continue your journey.' 
+                            {isLoginView
+                                ? 'Log in to continue your journey.'
                                 : 'Join us to start mastering the exams.'}
                         </p>
                     </div>
@@ -106,9 +125,9 @@ export default function JoinPage() {
                         {!isLoginView && (
                             <FormInput id="name" label="Full Name" type="text" value={formData.name} onChange={handleInputChange} placeholder="Your Name" />
                         )}
-                        
+
                         <FormInput id="email" label="Email Address" type="email" value={formData.email} onChange={handleInputChange} placeholder="you@example.com" />
-                        
+
                         {!isLoginView && (
                              <FormInput id="phoneNo" label="Phone Number" type="tel" value={formData.phoneNo} onChange={handleInputChange} placeholder="10-digit mobile number" />
                         )}
@@ -126,7 +145,7 @@ export default function JoinPage() {
                             disabled={isLoading}
                             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300"
                         >
-                            {isLoading ? 'Processing...' : (isLoginView ? 'Log In' : 'Create Account')}
+                            {isLoginView ? 'Log In' : 'Create Account'}
                         </button>
                     </form>
 
@@ -139,7 +158,6 @@ export default function JoinPage() {
                 </div>
             </div>
 
-            {/* Right Side: Creativity Panel (Placeholder) */}
             <div className="hidden lg:flex w-1/2 bg-gray-800 items-center justify-center p-12">
                  <div className="text-center text-white">
                     <h2 className="text-4xl font-bold">Your Creative Space</h2>

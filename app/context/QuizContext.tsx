@@ -1,3 +1,4 @@
+// app/context/QuizContext.tsx
 'use client';
 
 import React, {
@@ -8,14 +9,11 @@ import React, {
     useEffect,
     useCallback,
 } from 'react';
-import {
-    useRouter,
-    usePathname
-} from 'next/navigation';
-import {
-    Question,
-    UserAnswer
-} from '@/types';
+import { useRouter, usePathname } from 'next/navigation';
+import { Question, UserAnswer } from '@/types';
+import { auth } from '@/lib/firebase'; // Import auth to get the current user
+
+// NOTE: The interfaces (BackendQuestion, GroupByKey, etc.) remain the same.
 
 type BackendQuestion = {
     _id: string;
@@ -124,6 +122,14 @@ interface QuizContextType {
 const QuizContext = createContext < QuizContextType | undefined > (undefined);
 const SESSION_STORAGE_KEY = 'activeQuizSession';
 
+// --- NEW HELPER FUNCTION TO GET AUTH TOKEN ---
+const getAuthHeader = async () => {
+    const user = auth.currentUser;
+    if (!user) return null;
+    const token = await user.getIdToken();
+    return { 'Authorization': `Bearer ${token}` };
+};
+
 export const QuizProvider = ({ children }: { children: ReactNode }) => {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -155,6 +161,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
     const loadAndStartQuiz = useCallback(async (filter: QuizFilter, restoreState?: Partial<SavedQuizState>) => {
         setIsLoading(true);
         setQuizError(null);
+
+        // --- ADDED AUTH CHECK ---
+        const headers = await getAuthHeader();
+        if (!headers) {
+            setQuizError({ message: 'You must be logged in to start a quiz.', type: 'auth' });
+            setIsLoading(false);
+            return;
+        }
+
         let title = 'UPSC Practice', groupBy: GroupByKey | null = null, groupingEnabled = false;
         if (filter.subject && filter.topic) { title = `${filter.subject} - ${filter.topic}`; groupBy = 'examYear'; groupingEnabled = true; } 
         else if (filter.subject) { title = `${filter.subject} - All Questions`; groupBy = 'topic'; groupingEnabled = true; } 
@@ -162,8 +177,15 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         setQuizTitle(title); setQuizGroupBy(groupBy); setIsGroupingEnabled(groupingEnabled);
 
         try {
-            const response = await fetch(`/api/questions?${new URLSearchParams(filter as Record<string, string>).toString()}`);
-            if (!response.ok) { setQuizError({ message: 'Could not load questions.', type: 'generic' }); return; }
+            const response = await fetch(`/api/questions?${new URLSearchParams(filter as Record<string, string>).toString()}`, { headers });
+            if (!response.ok) { 
+                if (response.status === 401) {
+                    setQuizError({ message: 'Your session has expired. Please log in again.', type: 'auth' });
+                } else {
+                    setQuizError({ message: 'Could not load questions.', type: 'generic' });
+                }
+                return; 
+            }
             const result = await response.json();
             if (result.success && result.data.length > 0) {
                 const transformedQuestions: Question[] = result.data.map((q: BackendQuestion, index: number) => ({
@@ -224,7 +246,47 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         const finalScore = parseFloat(((correctCount * 2) - (incorrectCount * (2 / 3))).toFixed(2));
         return { correctCount, incorrectCount, unattemptedCount, finalScore, maxScore: questions.length * 2 };
     }, [questions, userAnswers]);
+    
+    const saveTestResult = async () => {
+        const headers = await getAuthHeader();
+        if (!headers) {
+            showToast("You must be logged in to save results.", "warning");
+            return;
+        }
 
+        const { correctCount, incorrectCount, unattemptedCount, finalScore, maxScore } = calculateResults();
+        
+        const payload = {
+            quizTitle,
+            questions: questions.map(q => q.id),
+            userAnswers,
+            score: {
+                correctCount,
+                incorrectCount,
+                unattemptedCount,
+                finalScore,
+                maxScore,
+            },
+        };
+
+        try {
+            const response = await fetch('/api/test-result', {
+                method: 'POST',
+                headers: { ...headers, 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to save the test result.");
+            }
+            showToast("Test result saved successfully!", "info");
+            resetTest(); // Go to dashboard after saving
+        } catch (error) {
+            console.error("Error saving test result:", error);
+            showToast("Could not save the test result.", "warning");
+        }
+    };
+    
     useEffect(() => {
         if (showReport || showDetailedSolution) {
             const attemptedCount = userAnswers.length;
@@ -240,7 +302,6 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [showReport, showDetailedSolution, userAnswers, totalTime, timeLeft, calculateResults]);
 
-    const saveTestResult = async () => { /* ... */ };
     const handleAnswerSelect = (questionId: string, answer: string) => { /* ... */ };
     const toggleBookmark = (questionId: string) => { /* ... */ };
     const toggleMarkForReview = (questionId: string) => { /* ... */ };
@@ -276,7 +337,7 @@ export const QuizProvider = ({ children }: { children: ReactNode }) => {
         getNotAttemptedCount, loadAndStartQuiz: loadAndStartQuiz as (filter: QuizFilter) => Promise<void>,
         isPageScrolled, setIsPageScrolled, currentGroupInView, setCurrentGroupInView, bookmarkedQuestions,
         toggleBookmark, markedForReview, toggleMarkForReview, saveTestResult, 
-        calculateResults, // THIS IS THE FIX
+        calculateResults,
         toast, showToast, hideToast,
         performanceStats
     };

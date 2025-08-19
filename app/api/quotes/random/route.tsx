@@ -1,37 +1,33 @@
+// app/api/quotes/random/route.tsx
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/dbConnect';
-import Quote from '@/models/Quote';
+import { adminDb } from '@/lib/firebaseAdmin';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Handles GET requests to /api/quotes/random.
- * Fetches one single random quote from the database.
+ * Fetches one single random quote from the Firestore database.
  */
 export async function GET() {
-  await dbConnect();
-
   try {
-    // 1. Get the total count of quotes in the database.
-    const count = await Quote.countDocuments();
+    const quotesSnapshot = await adminDb.collection('quotes').get();
     
-    // If there are no quotes, return a default one.
-    if (count === 0) {
+    if (quotesSnapshot.empty) {
+      // If there are no quotes, return a default one.
       return NextResponse.json({ 
         success: true, 
         quote: '"The expert in anything was once a beginner." - Anonymous' 
       }, { status: 200 });
     }
     
-    // 2. Generate a random number (index) from 0 to count - 1.
-    const randomIndex = Math.floor(Math.random() * count);
+    // 1. Get all quote documents from the snapshot.
+    const quotes = quotesSnapshot.docs.map(doc => doc.data());
     
-    // 3. Fetch one single quote at that random index.
-    const randomQuote = await Quote.findOne().skip(randomIndex);
-
-    if (!randomQuote) {
-      return NextResponse.json({ success: false, error: 'No quotes found.' }, { status: 404 });
-    }
+    // 2. Generate a random index.
+    const randomIndex = Math.floor(Math.random() * quotes.length);
+    
+    // 3. Select the quote at that random index.
+    const randomQuote = quotes[randomIndex];
 
     return NextResponse.json({
       success: true,

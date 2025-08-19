@@ -1,11 +1,10 @@
+// app/api/questions/[id]/route.tsx
 import { NextRequest, NextResponse } from 'next/server';
-import dbConnect from '@/lib/dbConnect';
-import Question from '@/models/Question';
+import { adminDb } from '@/lib/firebaseAdmin';
+import { verifyFirebaseSession } from '@/lib/auth/server';
 
-// This line forces the route to be dynamic.
 export const dynamic = 'force-dynamic';
 
-// Define a specific type for the route's context, including params.
 type RouteContext = {
   params: {
     id: string;
@@ -14,17 +13,17 @@ type RouteContext = {
 
 /**
  * Handles GET requests to /api/questions/[id].
- * Fetches a single question by its ID.
+ * Fetches a single question by its ID from Firestore.
  */
 export async function GET(req: NextRequest, { params }: RouteContext) {
-  await dbConnect();
-
+  // This route can remain public or be protected based on requirements.
+  // For now, let's assume it's public for simplicity.
   try {
-    const question = await Question.findById(params.id);
-    if (!question) {
+    const questionDoc = await adminDb.collection('questions').doc(params.id).get();
+    if (!questionDoc.exists) {
       return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, data: question }, { status: 200 });
+    return NextResponse.json({ success: true, data: { _id: questionDoc.id, ...questionDoc.data() } }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: 'Server Error: ' + error.message }, { status: 500 });
   }
@@ -32,27 +31,32 @@ export async function GET(req: NextRequest, { params }: RouteContext) {
 
 /**
  * Handles PUT requests to /api/questions/[id].
- * Updates a specific question in the database.
+ * Updates a specific question in Firestore.
  */
 export async function PUT(req: NextRequest, { params }: RouteContext) {
-  await dbConnect();
+  const decodedToken = await verifyFirebaseSession(req);
+  const userDoc = decodedToken ? await adminDb.collection('users').doc(decodedToken.uid).get() : null;
+  const userRole = userDoc?.data()?.role;
+
+  if (userRole !== 'admin') {
+    return NextResponse.json({ success: false, message: 'Unauthorized: Admins only.' }, { status: 401 });
+  }
 
   try {
     const body = await req.json();
-    const question = await Question.findByIdAndUpdate(
-      params.id,
-      body,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const questionRef = adminDb.collection('questions').doc(params.id);
 
-    if (!question) {
-      return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
+    // Ensure the document exists before trying to update
+    const docSnap = await questionRef.get();
+    if (!docSnap.exists) {
+        return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: question }, { status: 200 });
+    await questionRef.update(body);
+
+    const updatedDoc = await questionRef.get();
+
+    return NextResponse.json({ success: true, data: { _id: updatedDoc.id, ...updatedDoc.data() } }, { status: 200 });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
@@ -60,17 +64,26 @@ export async function PUT(req: NextRequest, { params }: RouteContext) {
 
 /**
  * Handles DELETE requests to /api/questions/[id].
- * Deletes a specific question from the database.
+ * Deletes a specific question from Firestore.
  */
 export async function DELETE(req: NextRequest, { params }: RouteContext) {
-  await dbConnect();
+  const decodedToken = await verifyFirebaseSession(req);
+  const userDoc = decodedToken ? await adminDb.collection('users').doc(decodedToken.uid).get() : null;
+  const userRole = userDoc?.data()?.role;
 
+  if (userRole !== 'admin') {
+    return NextResponse.json({ success: false, message: 'Unauthorized: Admins only.' }, { status: 401 });
+  }
+  
   try {
-    const deletedQuestion = await Question.deleteOne({ _id: params.id });
+    const questionRef = adminDb.collection('questions').doc(params.id);
 
-    if (deletedQuestion.deletedCount === 0) {
-      return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
+    const docSnap = await questionRef.get();
+    if (!docSnap.exists) {
+        return NextResponse.json({ success: false, error: 'Question not found' }, { status: 404 });
     }
+
+    await questionRef.delete();
 
     return NextResponse.json({ success: true, data: {} }, { status: 200 });
   } catch (error: any) {
